@@ -41,7 +41,7 @@ export default function Home() {
     formData.append("prompt", prompt);
 const token = localStorage.getItem('token')
     try {
-      const res = await axios.post(`${API_URL}/files/upload`, formData, {
+      const res = await axios.post(`${API_URL}/api/files/upload`, formData, {
         headers: { 
           "Content-Type": "multipart/form-data",
             Authorization: `Bearer ${token}`,

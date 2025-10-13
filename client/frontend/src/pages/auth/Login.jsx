@@ -43,7 +43,7 @@ export default function Login() {
     e.preventDefault();
 
        try {
-            const response = await axios.post(`${API_URL}/auth/login`, userValues)
+            const response = await axios.post(`${API_URL}/api/auth/login`, userValues)
             if (response.status === 200 && response.data.success) {
     localStorage.setItem('token', response.data.token);
     setSuccess('Login successful, Redirecting...');

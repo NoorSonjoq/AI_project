@@ -52,7 +52,7 @@ if (!userValues.full_name || !userValues.email
     
     try{
 
-  const response = await axios.post(`${API_URL}/auth/register`, userValues)
+  const response = await axios.post(`${API_URL}/api/auth/register`, userValues)
  alert("User registered successfully!");
     } catch (error) {
         console.error("Error registering user:", error.response?.data || error.message);
