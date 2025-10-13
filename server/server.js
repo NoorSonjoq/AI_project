@@ -20,10 +20,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // === CORS Middleware ===
+// const allowedOrigins = [
+// "https://ai-project-3x1h.vercel.app"];
+
 const allowedOrigins = [
   "https://ai-project-3x1h.vercel.app",
-  "https://another-frontend.vercel.app" // ضيفي أي frontend آخر هنا
+  "https://newre-git-main-noorsonjoq-s-projects.vercel.app"
 ];
+
 
 app.use(cors({
   origin: function(origin, callback){
