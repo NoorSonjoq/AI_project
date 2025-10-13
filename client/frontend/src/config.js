@@ -1,3 +1,3 @@
 // src/config.js
-export const API_URL = "https://ai-model-project-react-node-js-sql.onrender.com/api";
+export const API_URL = "https://ai-project-lazb.onrender.com";
  
