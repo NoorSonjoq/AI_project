@@ -19,28 +19,16 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// إنشاء uploads folder إذا غير موجود
-const uploadsDir = path.join(__dirname, process.env.UPLOAD_PATH || "uploads");
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
-
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(logger);
-
-// Static folder للملفات المرفوعة
-app.use("/uploads", express.static(uploadsDir));
-
-// CORS setup للسماح لأكثر من frontend
+// === CORS Middleware ===
 const allowedOrigins = [
-  "https://ai-project-3x1h-3605tp76p-noorsonjoq-s-projects.vercel.app",
-  "https://another-frontend.vercel.app" 
+  "https://ai-project-3x1h.vercel.app",
+  "https://another-frontend.vercel.app" // ضيفي أي frontend آخر هنا
 ];
 
 app.use(cors({
   origin: function(origin, callback){
-    if (!origin) return callback(null, true); // 
-    if (allowedOrigins.indexOf(origin) === -1) {
+    if(!origin) return callback(null, true); // للسيرفرات أو curl requests
+    if(allowedOrigins.indexOf(origin) === -1){
       const msg = "CORS policy does not allow access from this origin.";
       return callback(new Error(msg), false);
     }
@@ -48,6 +36,18 @@ app.use(cors({
   },
   credentials: true
 }));
+
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(logger);
+
+// إنشاء uploads folder إذا غير موجود
+const uploadsDir = path.join(__dirname, process.env.UPLOAD_PATH || "uploads");
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+
+// Static folder للملفات المرفوعة
+app.use("/uploads", express.static(uploadsDir));
 
 // Routes
 app.use("/api/auth", authRoutes);
