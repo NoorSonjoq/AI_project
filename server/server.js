@@ -19,21 +19,35 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Middleware
-app.use(cors({
-  origin: "https://newre-git-main-noorsonjoq-s-projects.vercel.app", 
-  credentials: true
-}));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(logger);
-
 // إنشاء uploads folder إذا غير موجود
 const uploadsDir = path.join(__dirname, process.env.UPLOAD_PATH || "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(logger);
+
 // Static folder للملفات المرفوعة
 app.use("/uploads", express.static(uploadsDir));
+
+// CORS setup للسماح لأكثر من frontend
+const allowedOrigins = [
+  "https://ai-project-3x1h-3605tp76p-noorsonjoq-s-projects.vercel.app",
+  "https://another-frontend.vercel.app" 
+];
+
+app.use(cors({
+  origin: function(origin, callback){
+    if (!origin) return callback(null, true); // 
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = "CORS policy does not allow access from this origin.";
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true
+}));
 
 // Routes
 app.use("/api/auth", authRoutes);
@@ -55,4 +69,3 @@ app.get("/", (req, res) => res.send("🚀 API is running successfully..."));
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🌍 Server running on port ${PORT}`));
-
