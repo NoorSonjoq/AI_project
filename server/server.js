@@ -19,9 +19,6 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// === CORS Middleware ===
-// const allowedOrigins = [
-// "https://ai-project-3x1h.vercel.app"];
 
 const allowedOrigins = [
   "https://ai-project-3x1h.vercel.app",
@@ -31,7 +28,7 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function(origin, callback){
-    if(!origin) return callback(null, true); // للسيرفرات أو curl requests
+    if(!origin) return callback(null, true);
     if(allowedOrigins.indexOf(origin) === -1){
       const msg = "CORS policy does not allow access from this origin.";
       return callback(new Error(msg), false);
