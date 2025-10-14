@@ -19,24 +19,30 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-
+// ✅ السماح فقط للأصول المحددة
 const allowedOrigins = [
   "https://ai-project-3x1h.vercel.app",
-  "https://newre-git-main-noorsonjoq-s-projects.vercel.app"
+  "https://newre-git-main-noorsonjoq-s-projects.vercel.app",
+  "http://localhost:3000" // للتطوير محلياً
 ];
 
-
+// ✅ إعدادات CORS
 app.use(cors({
-  origin: function(origin, callback){
-    if(!origin) return callback(null, true);
-    if(allowedOrigins.indexOf(origin) === -1){
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true); // السماح للـ Postman أو server-to-server
+    if (allowedOrigins.indexOf(origin) === -1) {
       const msg = "CORS policy does not allow access from this origin.";
       return callback(new Error(msg), false);
     }
     return callback(null, true);
   },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
 }));
+
+// ✅ السماح بـ preflight لجميع المسارات
+app.options("*", cors());
 
 // Middleware
 app.use(express.json());
@@ -45,7 +51,7 @@ app.use(logger);
 
 // إنشاء uploads folder إذا غير موجود
 const uploadsDir = path.join(__dirname, process.env.UPLOAD_PATH || "uploads");
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 // Static folder للملفات المرفوعة
 app.use("/uploads", express.static(uploadsDir));
