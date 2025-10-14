@@ -34,10 +34,10 @@ const UserReportHistory = sequelize.define(
       allowNull: true,
     },
     
-    file_path: {
-  type: DataTypes.STRING,
-  allowNull: false,
-  },
+  //   file_path: {
+  // type: DataTypes.STRING,
+  // allowNull: false,
+  // },
     created_at: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
