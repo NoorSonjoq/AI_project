@@ -23,7 +23,6 @@ const __dirname = path.dirname(__filename);
 const allowedOrigins = [
   "https://ai-project-3x1h.vercel.app",
   "https://newre-git-main-noorsonjoq-s-projects.vercel.app",
-  "http://localhost:3000"
 ];
 
 app.use(cors({
@@ -61,7 +60,7 @@ app.use("/api/history", historyRoutes);
 app.get("/", (req, res) => res.send("🚀 API is running successfully..."));
 
 // Catch-all route للـ React frontend
-app.get('*', (req, res) => {
+app.get('/*', (req, res) => {
   res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html'));
 });
 
