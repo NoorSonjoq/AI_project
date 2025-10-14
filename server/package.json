@@ -19,7 +19,6 @@
   },
   "homepage": "https://github.com/HidayahJadaan/AI_Model_Project-React-Node.js-SQL-#readme",
   "dependencies": {
-    "adm-zip": "^0.5.16",
     "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
