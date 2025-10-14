@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from 'axios'
@@ -54,12 +53,7 @@ export default function Login() {
         } catch(err) {
             console.log(err.message)
         }
-
-
-    
   };
-
-
   return (
     <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
       <div className="card shadow p-4" style={{ width: "22rem" }}>
@@ -93,7 +87,7 @@ export default function Login() {
               name="password"
               className={`form-control ${errors.password ? "is-invalid" : ""}`}
               placeholder="Enter your password"
-              value={userValues.password}
+              value={userValues.password} 
               onChange={handleChange}
             />
             {errors.password && (
