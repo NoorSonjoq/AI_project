@@ -57,6 +57,7 @@ export const register = async (req, res) => {
 // --- LOGIN ---
 export const login = async (req, res) => {
   try {
+    console.log("Login request body:", req.body);
     const { email, password } = req.body;
     // change the qure to be fit with the logical delete
     const users = await sequelize.query("SELECT * FROM users WHERE email = ? AND (is_deleted IS NULL OR is_deleted = 0)", {
