@@ -28,8 +28,8 @@ const allowedOrigins = [
 
 // ✅ إعدادات CORS
 app.use(cors({
-  origin: function(origin, callback) {
-    if (!origin) return callback(null, true); // السماح للـ Postman أو server-to-server
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) === -1) {
       const msg = "CORS policy does not allow access from this origin.";
       return callback(new Error(msg), false);
@@ -41,8 +41,8 @@ app.use(cors({
   credentials: true
 }));
 
-// ✅ السماح بـ preflight لجميع المسارات
-app.options("*", cors());
+// ✅ السماح بـ preflight لجميع المسارات (تم التعديل هنا)
+app.options("/*", cors());
 
 // Middleware
 app.use(express.json());
