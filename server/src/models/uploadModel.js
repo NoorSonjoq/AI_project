@@ -1,3 +1,68 @@
+// import { DataTypes } from "sequelize";
+// import sequelize from "../config/db.js";
+// import User from "./userModel.js";
+
+// const UserUpload = sequelize.define(
+//   "UserUpload",
+//   {
+//     upload_id: {
+//       type: DataTypes.INTEGER.UNSIGNED,
+//       autoIncrement: true,
+//       primaryKey: true,
+//     },
+//     user_id: {
+//       type: DataTypes.INTEGER.UNSIGNED,
+//       allowNull: false,
+//       references: {
+//         model: User,
+//         key: "user_id",
+//       },
+//       onDelete: "CASCADE",
+//     },
+//     file_name: {
+//       type: DataTypes.STRING(255),
+//       allowNull: false,
+//     },
+//     file_path: {
+//       type: DataTypes.STRING(255),
+//       allowNull: false,
+//     },
+//     file_type: {
+//       type: DataTypes.STRING(250),
+//       allowNull: true,
+//     },
+//     description_upload_file: {
+//       // ✅ تعديل الاسم ليتطابق مع الجدول MySQL
+//       type: DataTypes.STRING(255),
+//       allowNull: true,
+//     },
+//     uploaded_at: {
+//       type: DataTypes.DATE,
+//       defaultValue: DataTypes.NOW,
+//     },
+//     // ✅ من أجل الحذف المنطقي
+//     is_deleted: {
+//       type: DataTypes.BOOLEAN,
+//       allowNull: false,
+//       defaultValue: false,
+//     },
+//     deleted_at: {
+//       type: DataTypes.DATE,
+//       allowNull: true,
+//     },
+//   },
+//   {
+//     tableName: "user_uploads",
+//     timestamps: false, // لأن عندنا uploaded_at فقط
+//   }
+// );
+
+// // ✅ العلاقة مع المستخدمين
+// User.hasMany(UserUpload, { foreignKey: "user_id" });
+// UserUpload.belongsTo(User, { foreignKey: "user_id" });
+
+// export default UserUpload;
+
 import { DataTypes } from "sequelize";
 import sequelize from "../config/db.js";
 import User from "./userModel.js";
@@ -10,6 +75,7 @@ const UserUpload = sequelize.define(
       autoIncrement: true,
       primaryKey: true,
     },
+
     user_id: {
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
@@ -19,33 +85,39 @@ const UserUpload = sequelize.define(
       },
       onDelete: "CASCADE",
     },
+
     file_name: {
       type: DataTypes.STRING(255),
       allowNull: false,
     },
-    file_path: {
-      type: DataTypes.STRING(255),
+
+    // ✅ نحذف file_path لأنه لم يعد مستخدمًا
+    // ونضيف file_data لتخزين محتوى الملف (كمضغوط ZIP)
+    file_type: {
+      type: DataTypes.STRING(100),
       allowNull: false,
     },
-    file_type: {
-      type: DataTypes.STRING(250),
-      allowNull: true,
+
+    file_data: {
+      type: DataTypes.BLOB("long"),
+      allowNull: false, // لأننا نحفظ الملف فعليًا هنا
     },
+
     description_upload_file: {
-      // ✅ تعديل الاسم ليتطابق مع الجدول MySQL
       type: DataTypes.STRING(255),
       allowNull: true,
     },
+
     uploaded_at: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
     },
-    // ✅ من أجل الحذف المنطقي
+
     is_deleted: {
       type: DataTypes.BOOLEAN,
-      allowNull: false,
       defaultValue: false,
     },
+
     deleted_at: {
       type: DataTypes.DATE,
       allowNull: true,
@@ -53,12 +125,12 @@ const UserUpload = sequelize.define(
   },
   {
     tableName: "user_uploads",
-    timestamps: false, // لأن عندنا uploaded_at فقط
+    timestamps: false, // لأننا نستخدم uploaded_at فقط
   }
 );
 
 // ✅ العلاقة مع المستخدمين
-User.hasMany(UserUpload, { foreignKey: "user_id" });
-UserUpload.belongsTo(User, { foreignKey: "user_id" });
+User.hasMany(UserUpload, { foreignKey: "user_id", onDelete: "CASCADE" });
+UserUpload.belongsTo(User, { foreignKey: "user_id", onDelete: "CASCADE" });
 
-export default UserUpload;
+export default UserUpload;
