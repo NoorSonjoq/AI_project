@@ -7,6 +7,7 @@ import { API_URL } from "../../config";
 
 export default function Register() {
   // ==========================================================================
+  
 const navigate = useNavigate();
   const[userValues, setUserValues] = useState({
   full_name:'',
@@ -25,41 +26,58 @@ setUserValues({ ...userValues, [e.target.name]: e.target.value });
 }
 // ########################
 
-const handleSubmitRegisterForm = async (e)=>{
-e.preventDefault();
+const handleSubmitRegisterForm = async (e) => {
+  e.preventDefault();
 
-setError('');
-setSuccess('');
+  setError('');
+  setSuccess('');
 
-if (!userValues.full_name || !userValues.email 
-  || !userValues.password || !userValues.confirmPassword) {
-      setError('All fields are required.');
-      return;
+  // ✅ تحقق من الحقول المطلوبة
+  if (!userValues.full_name || !userValues.email 
+      || !userValues.password || !userValues.confirmPassword) {
+    setError('All fields are required.');
+    return;
+  }
+
+  // ✅ التحقق من طول الباسورد
+  if (userValues.password.length < 6) {
+    setError('Password must be at least 6 characters.');
+    return;
+  }
+
+  // ✅ التأكد من تطابق الباسورد
+  if (userValues.password !== userValues.confirmPassword) {
+    setError('Passwords do not match.');
+    return;
+  }
+
+  try {
+    // ✅ التسجيل على السيرفر
+    const response = await axios.post(
+      `${API_URL}/api/auth/register`,
+      userValues,
+      {
+        headers: { "Content-Type": "application/json" },
+        withCredentials: true, // 👈 مهم إذا السيرفر يستخدم session
+      }
+    );
+
+    // إذا التسجيل ناجح
+    if (response.status === 201 || response.data.success) {
+      setSuccess("User registered successfully!");
+
+      // 🔹 خيار: تسجيل دخول المستخدم مباشرة بعد التسجيل
+      // إذا السيرفر يرجع session أو token في الكوكي
+      // يمكن إعادة التوجيه مباشرة
+      setTimeout(() => navigate("/home"), 1500);
     }
 
-    
-    if (userValues.password.length < 6) {
-      setError('Password must be at least 6 characters.');
-      return;
-    }
+  } catch (error) {
+    console.error("Error registering user:", error.response?.data || error.message);
+    setError("Error registering user: " + (error.response?.data?.message || error.message));
+  }
+};
 
-   
-    if (userValues.password !== userValues.confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-
-    
-    try{
-
-  const response = await axios.post(`${API_URL}/api/auth/register`, userValues)
- alert("User registered successfully!");
-    } catch (error) {
-        console.error("Error registering user:", error.response?.data || error.message);
-        alert("Error registering user: " + (error.response?.data?.message || error.message));
-    }
-
-  };
 
 
 

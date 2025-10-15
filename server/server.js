@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
+import session from "express-session";
 import { fileURLToPath } from "url";
 
 import authRoutes from "./src/routes/authRoutes.js";
@@ -19,29 +20,43 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-
+// 🔹 قائمة المواقع المسموح لها بالوصول
 const allowedOrigins = [
   "https://ai-project-3x1h.vercel.app",
-  "https://newre-git-main-noorsonjoq-s-projects.vercel.app"
+  "https://newre-git-main-noorsonjoq-s-projects.vercel.app",
+  "http://localhost:3000" // إضافة للفرونت المحلي أثناء التطوير
 ];
 
-
+// CORS middleware
 app.use(cors({
   origin: function(origin, callback){
-    if(!origin) return callback(null, true);
+    if(!origin) return callback(null, true); // يسمح بالطلبات من Postman أو السيرفر نفسه
     if(allowedOrigins.indexOf(origin) === -1){
       const msg = "CORS policy does not allow access from this origin.";
       return callback(new Error(msg), false);
     }
     return callback(null, true);
   },
-  credentials: true
+  credentials: true // ✅ مهم لإرسال الكوكي مع كل طلب
 }));
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(logger);
+
+// 🔹 إعداد session
+app.use(session({
+  secret: process.env.SESSION_SECRET || "keyboard_cat", // سر الجلسة
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,   // يحمي الكوكي من JS
+    secure: process.env.NODE_ENV === "production", // HTTPS فقط في البروكشن
+    sameSite: "lax",  // حماية ضد CSRF
+    maxAge: 60 * 60 * 1000 // ساعة
+  }
+}));
 
 // إنشاء uploads folder إذا غير موجود
 const uploadsDir = path.join(__dirname, process.env.UPLOAD_PATH || "uploads");

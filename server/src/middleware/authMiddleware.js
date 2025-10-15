@@ -1,21 +1,12 @@
 // src/middleware/authMiddleware.js
-import jwt from "jsonwebtoken";
-import User from "../models/userModel.js";
 
-export const verifyToken = async (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ message: "No token provided" });
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findByPk(decoded.id);
-    if (!user) return res.status(401).json({ message: "User not found" });
-
-    req.user = { id: user.user_id }; // نحتفظ فقط بـ user_id
-
-    //req.user = user; // delete this and add the line above
-    next();
-  } catch (err) {
-    res.status(401).json({ message: "Invalid token" });
+export const verifySession = (req, res, next) => {
+  // ✅ التحقق من وجود userId في الجلسة
+  if (!req.session.userId) {
+    return res.status(401).json({ message: "Unauthorized: No session found" });
   }
+
+  // نخزن userId في req.user عشان باقي الـ routes تستخدمه
+  req.user = { id: req.session.userId };
+  next();
 };

@@ -44,42 +44,45 @@ export default function Login() {
   };
 
   // 🔹 عند الضغط على زر تسجيل الدخول
-  const handleUserLogin = async (e) => {
-    e.preventDefault();
+  /// Noor Update
+ const handleUserLogin = async (e) => {
+  e.preventDefault();
 
-    const validationErrors = validate();
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
- console.log("Login data:", userValues);
-    try {
-      console.log("Login data:", userValues); // للتأكد أن البيانات تُرسل
-      const response = await axios.post(
-        `${API_URL}/api/auth/login`,
-        userValues,
-        {
-          headers: { "Content-Type": "application/json" }, // ✅ حل مشكلة 400
-        }
-      );
+  const validationErrors = validate();
+  if (Object.keys(validationErrors).length > 0) {
+    setErrors(validationErrors);
+    return;
+  }
 
-      if (response.status === 200 && response.data.success) {
-        localStorage.setItem("token", response.data.token);
-        setSuccess("Login successful, Redirecting...");
-        setErrors("");
-        setTimeout(() => navigate("/home"), 1500);
+  console.log("Login data:", userValues); // للتأكد من البيانات
+
+  try {
+    const response = await axios.post(
+      `${API_URL}/api/auth/login`,
+      userValues,
+      {
+        headers: { "Content-Type": "application/json" },
+        withCredentials: true, // ✅ مهم جداً للكوكيز والجلسة
       }
-    } catch (err) {
-      console.error("Login error:", err);
+    );
 
-      if (err.response) {
-        // ✅ عرض رسالة الخطأ من السيرفر
-        setErrors(err.response.data.message || "Login failed");
-      } else {
-        setErrors("Network error");
-      }
+    if (response.status === 200 && response.data.success) {
+      setSuccess("Login successful, Redirecting...");
+      setErrors("");
+
+      setTimeout(() => navigate("/home"), 1500);
     }
-  };
+  } catch (err) {
+    console.error("Login error:", err);
+
+    if (err.response) {
+      setErrors(err.response.data.message || "Login failed");
+    } else {
+      setErrors("Network error");
+    }
+  }
+};
+
 
   return (
     <div className="d-flex justify-content-center align-items-center vh-100 bg-light">

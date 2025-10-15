@@ -1,35 +1,3 @@
-// import express from "express";
-// import {
-//   uploadFile,
-//   getFiles,
-//   downloadFile,
-//   deleteUserUpload,
-//   updateUserUpload,
-// } from "../controllers/fileController.js";
-// import { verifyToken } from "../middleware/authMiddleware.js";
-// import { upload } from "../middleware/uploadMiddleware.js";
-
-// const router = express.Router();
-
-// // ✅ رفع ملف جديد (مع التحقق من التوكن)
-// router.post("/upload", verifyToken, upload.single("file"), uploadFile);
-
-// // ✅ جلب كل الملفات للمستخدم الحالي
-// router.get("/", verifyToken, getFiles);
-
-// // ✅ تحميل ملف معين
-// router.get("/download/:id", verifyToken, downloadFile);
-
-// // ✅ حذف ملف (مع التوكن)
-// router.patch("/upload/:upload_id/delete", verifyToken, deleteUserUpload);
-
-// // ✅ تحديث ملف (مع التوكن)
-// router.put("/upload/:upload_id", verifyToken, updateUserUpload);
-
-// export default router;
-// /// Done test
-
-
 import express from "express";
 import {
   uploadFile,
@@ -39,33 +7,30 @@ import {
   getFileById,
   updateUserUpload,
 } from "../controllers/fileController.js";
-import { verifyToken } from "../middleware/authMiddleware.js";
+import { verifySession } from "../middleware/authMiddleware.js";
 import multer from "multer";
 
 const router = express.Router();
 
-// 🟢 استخدام memoryStorage لتخزين الملف في الذاكرة قبل حفظه في قاعدة البيانات
+// 🟢 إعداد multer لتخزين الملف في الذاكرة قبل حفظه
 const upload = multer({ storage: multer.memoryStorage() });
 
-// ✅ رفع ملف جديد (مع التحقق من التوكن)
-router.post("/upload", verifyToken, upload.single("file"), uploadFile);
+// ✅ رفع ملف جديد (مع التحقق من الجلسة)
+router.post("/upload", verifySession, upload.single("file"), uploadFile);
 
 // ✅ جلب كل الملفات للمستخدم الحالي
-router.get("/", verifyToken, getFiles);
+router.get("/", verifySession, getFiles);
 
 // ✅ تحميل ملف معين مباشرة من قاعدة البيانات
-router.get("/download/:id", verifyToken, downloadFile);
+router.get("/download/:id", verifySession, downloadFile);
 
-// get file by id
-router.get("/:id", verifyToken, getFileById);
+// ✅ جلب ملف حسب id
+router.get("/:id", verifySession, getFileById);
 
-// ✅ حذف ملف (مع التوكن)
-router.patch("/upload/:upload_id/delete", verifyToken, deleteUserUpload);
+// ✅ حذف ملف
+router.patch("/upload/:upload_id/delete", verifySession, deleteUserUpload);
 
 // ✅ تحديث بيانات الملف (اسم أو وصف)
-router.put("/upload/:upload_id", verifyToken, updateUserUpload);
+router.put("/upload/:upload_id", verifySession, updateUserUpload);
 
-// ✅ تحميل ملف ZIP من قاعدة البيانات
-router.get("/download/:id", verifyToken, downloadFile);
-
-export default router;
+export default router;
