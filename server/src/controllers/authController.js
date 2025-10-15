@@ -59,12 +59,11 @@ export const login = async (req, res) => {
   try {
     console.log("Login request body:", req.body);
     const { email, password } = req.body;
-
-    // التحقق من المستخدم مع logical delete
-    const users = await sequelize.query(
-      "SELECT * FROM users WHERE email = ? AND (is_deleted IS NULL OR is_deleted = 0)",
-      { replacements: [email], type: sequelize.QueryTypes.SELECT }
-    );
+    // change the qure to be fit with the logical delete
+    const users = await sequelize.query("SELECT * FROM users WHERE email = ? AND (is_deleted IS NULL OR is_deleted = 0)", {
+      replacements: [email],
+      type: sequelize.QueryTypes.SELECT,
+    });
 
     const user = users[0];
     if (!user)
@@ -78,20 +77,17 @@ export const login = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Invalid credentials" });
 
-    // 👈 Session-based: تخزين user_id داخل الجلسة
-    req.session.userId = user.user_id;
-
-    res.status(200).json({ 
-      success: true, 
-      message: "Login successful" 
-      // ❌ لا حاجة لإرسال token
+    // ✅ نرسل فقط user_id في الـ JWT
+    const token = jwt.sign({ id: user.user_id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
     });
+
+    res.status(200).json({ success: true, token, message: "Login successful" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
-
 
 //LOGICAL DELETE USER 
 export const deleteUser = async (req, res) => {

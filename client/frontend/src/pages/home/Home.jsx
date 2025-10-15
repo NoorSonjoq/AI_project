@@ -29,31 +29,42 @@ export default function Home() {
 
   // ==================
   const handleUpload = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!file) {
-    setErrorMsg("Please choose a file or enter a prompt");
-    return;
-  }
+    if (!file) {
+      setErrorMsg("Please choose a file or enter a prompt");
+      return;
+    }
 
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("prompt", prompt);
+     const formData = new FormData();
+    formData.append("file", file);
+    formData.append("prompt", prompt);
+const token = localStorage.getItem('token')
+    try {
+      const res = await axios.post(`${API_URL}/api/files/upload`, formData, {
+        headers: { 
+          "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`,
+         },
+      });
+      console.log('RESPONSE', res.data.aiResponse);
+      setResult(res.data.aiResponse);
+      
+    } catch (err) {
+      console.error(err);
+      alert("Error processing the file");
+    } finally {
+      setLoading(false);
+    }
 
-  try {
-    const res = await axios.post(
-      `${API_URL}/api/files/upload`,
-      formData,
-      {
-        headers: { "Content-Type": "multipart/form-data" },
-        withCredentials: true, // ✅ مهم لإرسال الكوكي للباك
-      }
-    );
+    console.log(formData.get('file'));
+    console.log(formData.get('prompt'));
+    
+    setLoading(true);
+    setErrorMsg("");
+    setFileUploaded(true);
 
-    console.log("RESPONSE", res.data.aiResponse);
-    setResult(res.data.aiResponse);
-
-    // إنشاء رابط مؤقت للملف
+    // Create a Blob URL for the uploaded file
     const fileUrl = URL.createObjectURL(file);
 
     setUploadedFiles((prev) => [
@@ -61,19 +72,8 @@ export default function Home() {
       { name: file.name, url: fileUrl },
     ]);
 
-    setFileUploaded(true);
-    setErrorMsg("");
-  } catch (err) {
-    console.error(err);
-    alert("Error processing the file");
-  } finally {
     setLoading(false);
-  }
-
-  console.log(formData.get("file"));
-  console.log(formData.get("prompt"));
-  setLoading(true);
-};
+  };
 
   // ====================
   const handleDownloadPDF = () => {
