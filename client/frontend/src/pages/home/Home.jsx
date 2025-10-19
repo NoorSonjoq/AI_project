@@ -28,13 +28,8 @@ export default function Home() {
       const res = await axios.get(`${API_URL}/api/files/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setUploadedFiles(
-        res.data.files.map((f) => ({
-          id: f.upload_id,
-          name: f.file_name,
-          description: f.description_upload_file || "",
-        }))
-      );
+      // ✅ خزن الملفات كما هي بدون تحويل الاسم
+      setUploadedFiles(res.data.files);
     } catch (err) {
       console.error("Error fetching files", err);
       setErrorMsg("Error fetching files");
@@ -111,7 +106,7 @@ export default function Home() {
       await axios.patch(`${API_URL}/api/files/upload/${id}/delete`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setUploadedFiles((prev) => prev.filter(f => f.id !== id));
+      setUploadedFiles((prev) => prev.filter(f => f.upload_id !== id));
     } catch (err) {
       console.error("Delete error:", err);
       setErrorMsg("Error deleting file");
@@ -127,7 +122,11 @@ export default function Home() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setUploadedFiles((prev) =>
-        prev.map(f => (f.id === id ? { ...f, name: res.data.upload.file_name, description: res.data.upload.description_upload_file } : f))
+        prev.map(f =>
+          f.upload_id === id
+            ? { ...f, file_name: res.data.upload.file_name, description_upload_file: res.data.upload.description_upload_file }
+            : f
+        )
       );
     } catch (err) {
       console.error("Update error:", err);
@@ -163,19 +162,22 @@ export default function Home() {
           <p className="text-muted text-center">No files uploaded yet</p>
         ) : (
           <ul className="list-group small">
-            {uploadedFiles.map((file, i) => (
-              <li key={i} className="list-group-item d-flex justify-content-between align-items-center">
-                <span>{file.name}</span>
+            {uploadedFiles.map((file) => (
+              <li
+                key={file.upload_id}
+                className="list-group-item d-flex justify-content-between align-items-center"
+              >
+                <span>{file.file_name}</span>
                 <div>
                   <button
                     className="btn btn-sm btn-outline-primary me-2"
-                    onClick={() => handleDownload(file.id, file.name)}
+                    onClick={() => handleDownload(file.upload_id, file.file_name)}
                   >
                     Download
                   </button>
                   <button
                     className="btn btn-sm btn-outline-danger"
-                    onClick={() => handleDelete(file.id)}
+                    onClick={() => handleDelete(file.upload_id)}
                   >
                     Delete
                   </button>
