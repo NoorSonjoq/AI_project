@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import { Op } from "sequelize"; // 🟢 ضروري لاستخدام Op.lt
 
 import authRoutes from "./src/routes/authRoutes.js";
 import reportRoutes from "./src/routes/reportRoutes.js";
@@ -12,6 +13,7 @@ import historyRoutes from "./src/routes/historyroutes.js";
 import { logger } from "./src/middleware/loggerMiddleware.js";
 import { errorHandler } from "./src/middleware/errorMiddleware.js";
 import { connectDB } from "./src/config/db.js";
+import TokenBlacklist from "./src/models/tokenBlacklist.js";
 
 dotenv.config();
 
@@ -19,24 +21,24 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-
 const allowedOrigins = [
   "https://ai-project-3x1h.vercel.app",
-  "https://newre-git-main-noorsonjoq-s-projects.vercel.app"
+  "https://newre-git-main-noorsonjoq-s-projects.vercel.app",
 ];
 
-
-app.use(cors({
-  origin: function(origin, callback){
-    if(!origin) return callback(null, true);
-    if(allowedOrigins.indexOf(origin) === -1){
-      const msg = "CORS policy does not allow access from this origin.";
-      return callback(new Error(msg), false);
-    }
-    return callback(null, true);
-  },
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+        const msg = "CORS policy does not allow access from this origin.";
+        return callback(new Error(msg), false);
+      }
+      return callback(null, true);
+    },
+    credentials: true,
+  })
+);
 
 // Middleware
 app.use(express.json());
@@ -66,6 +68,23 @@ connectDB()
 
 // Test route
 app.get("/", (req, res) => res.send("🚀 API is running successfully..."));
+
+// Token cleanup function
+// ========================
+const cleanupExpiredTokens = async () => {
+  try {
+    const deleted = await TokenBlacklist.destroy({
+      where: { expires_at: { [Op.lt]: new Date() } },
+    });
+    if (deleted > 0) console.log(`🗑 ${deleted} توكنات منتهية الصلاحية`);
+  } catch (err) {
+    console.error("Error cleaning up expired tokens:", err);
+  }
+};
+
+// نفّذ التنظيف فور بدء السيرفر ثم كل ساعة
+cleanupExpiredTokens();
+setInterval(cleanupExpiredTokens, 60 * 60 * 1000);
 
 // Start server
 const PORT = process.env.PORT || 5000;

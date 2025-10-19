@@ -9,27 +9,11 @@ const User = sequelize.define(
       autoIncrement: true,
       primaryKey: true,
     },
-    full_name: {
-      type: DataTypes.STRING(100),
-      allowNull: false,
-    },
-    email: {
-      type: DataTypes.STRING(100),
-      allowNull: false,
-      unique: true,
-    },
-    password_hash: {
-      type: DataTypes.STRING(255),
-      allowNull: false,
-    },
-    is_deleted: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-    },
-    deleted_at: {
-      type: DataTypes.DATE,
-      allowNull: true,
-    },
+    full_name: { type: DataTypes.STRING(100), allowNull: false },
+    email: { type: DataTypes.STRING(100), allowNull: false, unique: true },
+    password_hash: { type: DataTypes.STRING(255), allowNull: false },
+    is_deleted: { type: DataTypes.BOOLEAN, defaultValue: false },
+    deleted_at: { type: DataTypes.DATE, allowNull: true },
   },
   {
     tableName: "users",
@@ -39,4 +23,4 @@ const User = sequelize.define(
   }
 );
 
-export default User;
+export default User;

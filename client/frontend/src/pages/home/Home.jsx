@@ -1,94 +1,150 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "bootstrap/dist/css/bootstrap.min.css";
 import jsPDF from "jspdf";
 import "./home.css";
 import { API_URL } from "../../config";
 
-
 export default function Home() {
+  const token = localStorage.getItem("token");
+
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [fileUploaded, setFileUploaded] = useState(false);
-   const [prompt, setPrompt] = useState("");
-   const [result, setResult] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [result, setResult] = useState("");
 
-  // now each file = { name, url }
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [generatedReportFiles, setGeneratedReportFiles] = useState([]);
 
-  // ==================
+  // ================== جلب الملفات عند فتح الصفحة
+  useEffect(() => {
+    fetchFiles();
+  }, []);
+
+  const fetchFiles = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/files/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setUploadedFiles(
+        res.data.files.map((f) => ({
+          id: f.upload_id,
+          name: f.file_name,
+          description: f.description_upload_file || "",
+        }))
+      );
+    } catch (err) {
+      console.error("Error fetching files", err);
+      setErrorMsg("Error fetching files");
+    }
+  };
+
+  // ==================== اختيار الملف
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
-
     setFile(selectedFile);
-    setFileUploaded(false);
+    setErrorMsg("");
   };
 
-  // ==================
+  // ==================== رفع الملف
   const handleUpload = async (e) => {
     e.preventDefault();
-
     if (!file) {
       setErrorMsg("Please choose a file or enter a prompt");
       return;
     }
 
-     const formData = new FormData();
+    const formData = new FormData();
     formData.append("file", file);
     formData.append("prompt", prompt);
-const token = localStorage.getItem('token')
+
+    setLoading(true);
+    setErrorMsg("");
+
     try {
       const res = await axios.post(`${API_URL}/api/files/upload`, formData, {
-        headers: { 
+        headers: {
           "Content-Type": "multipart/form-data",
-            Authorization: `Bearer ${token}`,
-         },
+          Authorization: `Bearer ${token}`,
+        },
       });
-      console.log('RESPONSE', res.data.aiResponse);
+
+      await fetchFiles(); // ✅ جلب الملفات بعد الرفع تلقائياً
       setResult(res.data.aiResponse);
-      
+      setFile(null);
+      setPrompt("");
+      setFileUploaded(true);
     } catch (err) {
       console.error(err);
-      alert("Error processing the file");
+      setErrorMsg("Error uploading file");
     } finally {
       setLoading(false);
     }
-
-    console.log(formData.get('file'));
-    console.log(formData.get('prompt'));
-    
-    setLoading(true);
-    setErrorMsg("");
-    setFileUploaded(true);
-
-    // Create a Blob URL for the uploaded file
-    const fileUrl = URL.createObjectURL(file);
-
-    setUploadedFiles((prev) => [
-      ...prev,
-      { name: file.name, url: fileUrl },
-    ]);
-
-    setLoading(false);
   };
 
-  // ====================
+  // ==================== تحميل الملف
+  const handleDownload = async (id, fileName) => {
+    try {
+      const res = await axios.get(`${API_URL}/api/files/download/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error("Download error:", err);
+      setErrorMsg("Error downloading file");
+    }
+  };
+
+  // ==================== حذف الملف
+  const handleDelete = async (id) => {
+    try {
+      await axios.patch(`${API_URL}/api/files/upload/${id}/delete`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setUploadedFiles((prev) => prev.filter(f => f.id !== id));
+    } catch (err) {
+      console.error("Delete error:", err);
+      setErrorMsg("Error deleting file");
+    }
+  };
+
+  // ==================== تحديث اسم الملف أو الوصف
+  const handleUpdate = async (id, newName, newDescription) => {
+    try {
+      const res = await axios.put(
+        `${API_URL}/api/files/upload/${id}`,
+        { file_name: newName, description_upload_file: newDescription },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setUploadedFiles((prev) =>
+        prev.map(f => (f.id === id ? { ...f, name: res.data.upload.file_name, description: res.data.upload.description_upload_file } : f))
+      );
+    } catch (err) {
+      console.error("Update error:", err);
+      setErrorMsg("Error updating file");
+    }
+  };
+
+  // ==================== توليد تقرير PDF
   const handleDownloadPDF = () => {
     const doc = new jsPDF();
     doc.text("AI Generated Report", 10, 10);
-    doc.text("Sample report content goes here...", 10, 20);
-    doc.text(result, 10, 30);
+    doc.text(result || "No content yet", 10, 20);
 
-    // Convert to Blob
     const pdfBlob = doc.output("blob");
     const pdfUrl = URL.createObjectURL(pdfBlob);
-    // const pdfName = "AI_Report_" + new Date().getTime() + ".pdf";
-    const pdfName = "AI_Report_" + ".pdf";
+    const pdfName = "AI_Report.pdf";
 
-    // Save to list (with URL)
     setGeneratedReportFiles((prev) => [
       ...prev,
       { name: pdfName, url: pdfUrl },
@@ -110,13 +166,20 @@ const token = localStorage.getItem('token')
             {uploadedFiles.map((file, i) => (
               <li key={i} className="list-group-item d-flex justify-content-between align-items-center">
                 <span>{file.name}</span>
-                <a
-                  href={file.url}
-                  download={file.name}
-                  className="btn btn-sm btn-outline-primary"
-                >
-                  Download
-                </a>
+                <div>
+                  <button
+                    className="btn btn-sm btn-outline-primary me-2"
+                    onClick={() => handleDownload(file.id, file.name)}
+                  >
+                    Download
+                  </button>
+                  <button
+                    className="btn btn-sm btn-outline-danger"
+                    onClick={() => handleDelete(file.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -141,15 +204,15 @@ const token = localStorage.getItem('token')
               />
             </div>
 
-               <div className="mb-3">
-          <textarea
-            placeholder="Enter your prompt here..."
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            rows={3}
-            className="form-control"
-          />
-        </div>
+            <div className="mb-3">
+              <textarea
+                placeholder="Enter your prompt here..."
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                rows={3}
+                className="form-control"
+              />
+            </div>
 
             <button type="submit" className="btn btn-primary w-100 mt-3" disabled={loading}>
               {loading ? "⏳ Uploading..." : "Upload"}
@@ -166,12 +229,7 @@ const token = localStorage.getItem('token')
             Generate Report as PDF
           </button>
 
-
-          {
-            result && <p>
-              {result}
-            </p>
-          }
+          {result && <p className="mt-3">{result}</p>}
         </div>
       </div>
 
@@ -197,6 +255,6 @@ const token = localStorage.getItem('token')
           </ul>
         )}
       </div>
-    </div>
-  );
+    </div>
+  );
 }

@@ -5,6 +5,7 @@ import {
   login,
   deleteUser,
   updateUser,
+  logout,
 } from "../controllers/authController.js"; //add deleteUser //add update
 
 const router = express.Router();
@@ -17,6 +18,9 @@ router.patch("/user/:user_id", deleteUser);
 
 // update rout
 router.put("/user/:user_id", updateUser);
+
+// Loug out 
+router.post("/logout", logout);
 
 export default router;
 

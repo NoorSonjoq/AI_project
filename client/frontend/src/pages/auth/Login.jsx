@@ -137,8 +137,9 @@ export default function Login() {
           <a href="/register" className="text-decoration-none">
             Register
           </a>
-        </p>ئ
+        </p>
       </div>
     </div>
   );
 }
+s

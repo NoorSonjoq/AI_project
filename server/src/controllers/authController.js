@@ -172,3 +172,32 @@ export const generateAIReport = async (prompt, dataPreview) => {
     return "AI summary unavailable (error)";
   }
 };
+
+// Logout controller 
+
+export const logout = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(400).json({ message: "لم يتم إرسال التوكن" });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findByPk(decoded.user_id);
+    if (!user) return res.status(404).json({ message: "المستخدم غير موجود" });
+
+    const expiresAt = new Date(decoded.exp * 1000);
+
+    await TokenBlacklist.create({
+      token,
+      expires_at: expiresAt,
+      user_id: user.user_id,
+    });
+
+    res.status(200).json({ message: "تم تسجيل الخروج بنجاح" });
+  } catch (err) {
+    console.error("Logout error:", err);
+    if (err.name === "TokenExpiredError")
+      return res.status(401).json({ message: "التوكن منتهي الصلاحية بالفعل" });
+    res.status(500).json({ message: "حدث خطأ في الخادم" });
+  }
+};
+
