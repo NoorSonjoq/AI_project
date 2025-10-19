@@ -17,11 +17,17 @@ export const sequelize = new Sequelize(
     logging: logging,
     dialectOptions: {
       ssl: {
-        ca: fs.readFileSync(process.env.DB_SSL_CA)
-      }
-    }
+        ca: fs.readFileSync(process.env.DB_SSL_CA),
+      },
+      charset: "utf8mb4", // ✅ أضف هذا السطر
+    },
+    define: {
+      charset: "utf8mb4", // ✅ وهذا
+      collate: "utf8mb4_unicode_ci", // ✅ وهذا
+    },
   }
 );
+
 
 export const connectDB = async () => {
   try {
