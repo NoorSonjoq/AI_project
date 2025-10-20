@@ -1,48 +1,47 @@
-// src/controllers/reportController.js
-import path from "path";
-import fs from "fs";
-import csv from "csv-parser";
 import XLSX from "xlsx";
+import stream from "stream";
+import csv from "csv-parser";
+import JSZip from "jszip";
 import PDFDocument from "pdfkit";
-import axios from "axios";
-import dotenv from "dotenv";
+import fs from "fs";
+import path from "path";
 
 import UserReport from "../models/reportModel.js";
 import UserUpload from "../models/uploadModel.js";
-import { DEFAULT_PROMPT, generateUniqueFileName } from "../utils/helpers.js";
 import { createHistory } from "../services/historyService.js";
+import { generateUniqueFileName, DEFAULT_PROMPT } from "../utils/helpers.js";
+import { generateAIReport } from "../services/geminiService.js";
 
-dotenv.config();
+/* ------------------------ قراءة معاينة الملف ------------------------ */
+const readFilePreview = async (fileBuffer, mimeType, maxRows = 15) => {
+  if (mimeType.includes("csv")) {
+    return new Promise((resolve, reject) => {
+      const rows = [];
+      const readable = new stream.Readable();
+      readable._read = () => {};
+      readable.push(fileBuffer);
+      readable.push(null);
 
-// --- Gemini AI config ---
-const GEMINI_API_URL = process.env.GEMINI_API_URL;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-// --- Parse CSV/XLSX file ---
-const parseFile = (filePath) => {
-  const ext = path.extname(filePath).toLowerCase();
-  return new Promise((resolve, reject) => {
-    if (ext === ".csv") {
-      const results = [];
-      fs.createReadStream(filePath)
+      readable
         .pipe(csv())
-        .on("data", (data) => results.push(data))
-        .on("end", () => resolve(results))
-        .on("error", (err) => reject(err));
-    } else if (ext === ".xlsx" || ext === ".xls") {
-      try {
-        const workbook = XLSX.readFile(filePath);
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        resolve(XLSX.utils.sheet_to_json(worksheet));
-      } catch (err) {
-        reject(err);
-      }
-    } else reject(new Error("Unsupported file type"));
-  });
+        .on("data", (data) => {
+          if (rows.length < maxRows) rows.push(data);
+        })
+        .on("end", () => resolve(rows))
+        .on("error", reject);
+    });
+  } else if (mimeType.includes("excel") || mimeType.includes("spreadsheet")) {
+    const workbook = XLSX.read(fileBuffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(sheet);
+    return data.slice(0, maxRows);
+  } else {
+    const text = fileBuffer.toString("utf8");
+    return text.slice(0, 2000);
+  }
 };
 
-// --- Create PDF from data ---
+/* ------------------------ إنشاء PDF ------------------------ */
 const createPDF = (data, title, description, outputFilePath) =>
   new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 30, size: "A4" });
@@ -52,9 +51,7 @@ const createPDF = (data, title, description, outputFilePath) =>
     doc.fontSize(16).text(title, { align: "center" });
     doc.moveDown();
     doc.fontSize(10).text(description, { align: "center" });
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, {
-      align: "center",
-    });
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, { align: "center" });
     doc.moveDown();
 
     data.forEach((row, index) => {
@@ -70,28 +67,10 @@ const createPDF = (data, title, description, outputFilePath) =>
     writeStream.on("error", (err) => reject(err));
   });
 
-// --- Generate AI Summary using Gemini ---
-const generateAIReport = async (prompt, dataPreview) => {
-  if (!GEMINI_API_KEY) return "AI summary unavailable (no API key)";
-
-  try {
-    const response = await axios.post(
-      GEMINI_API_URL,
-      { prompt, dataPreview },
-      { headers: { Authorization: `Bearer ${GEMINI_API_KEY}` } }
-    );
-
-    return response.data.result || "No result from AI";
-  } catch (err) {
-    console.error("Gemini API error:", err.message);
-    return "AI summary unavailable (error)";
-  }
-};
-
-// --- Generate Report ---
+/* ------------------------ توليد التقرير ------------------------ */
 export const generateReport = async (req, res, next) => {
   try {
-    const userId = req.user.user_id;
+    const userId = req.user.id;
     const file = req.file;
     if (!file)
       return res
@@ -101,37 +80,50 @@ export const generateReport = async (req, res, next) => {
     let { prompt } = req.body;
     prompt = prompt?.trim() || DEFAULT_PROMPT;
 
-    const filePath = path.join("uploads", file.filename);
-    const parsedData = await parseFile(filePath);
+    // قراءة المعاينة من الملف المرفوع
+    const previewData = await readFilePreview(file.buffer, file.mimetype);
 
-    const aiSummary = await generateAIReport(prompt, parsedData);
-    const finalData = [...parsedData, { AI_Summary: aiSummary }];
+    // إرسال المعاينة للـ AI
+    const aiSummary = await generateAIReport(prompt, previewData);
+    const finalData = [...previewData, { AI_Summary: aiSummary }];
 
+    // إنشاء PDF
     const reportTitle = "AI Generated Report";
     const reportDescription = `Report based on prompt: ${prompt}`;
     const pdfFileName = generateUniqueFileName("report.pdf");
-
-    // Folder for reports
-    const reportsDir = path.join("uploads", "reports");
+    const reportsDir = "uploads/reports";
     if (!fs.existsSync(reportsDir))
       fs.mkdirSync(reportsDir, { recursive: true });
-
     const pdfFilePath = path.join(reportsDir, pdfFileName);
-
     await createPDF(finalData, reportTitle, reportDescription, pdfFilePath);
 
+    // ضغط الملف قبل الحفظ
+    const zip = new JSZip();
+    zip.file(file.originalname, file.buffer);
+    const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
+
+    // حفظ الملف المضغوط في قاعدة البيانات
+    const uploaded = await UserUpload.create({
+      user_id: userId,
+      file_name: file.originalname,
+      file_type: "application/zip",
+      file_data: zipBuffer,
+    });
+
+    // حفظ التقرير وربطه بالملف المضغوط
     const report = await UserReport.create({
       user_id: userId,
       report_title: reportTitle,
       report_prompt: reportDescription,
       pdf_path: pdfFilePath,
+      upload_id: uploaded.upload_id,
     });
 
-    await createHistory(userId, report.report_id, "Created new report");
+    await createHistory(userId, report.report_id, `Created new report`);
 
     res.json({
       success: true,
-      message: "Report generated successfully",
+      message: "Report generated successfully with compressed file",
       report,
       preview: finalData,
     });
@@ -140,10 +132,63 @@ export const generateReport = async (req, res, next) => {
   }
 };
 
-// --- Get All Reports ---
+/* ------------------------ تنزيل الملف المضغوط للتقرير ------------------------ */
+export const downloadReportFile = async (req, res, next) => {
+  try {
+    const { report_id } = req.params;
+    const report = await UserReport.findByPk(report_id);
+    if (!report || report.is_deleted)
+      return res.status(404).json({ message: "Report not found" });
+
+    if (!report.upload_id)
+      return res
+        .status(404)
+        .json({ message: "No file associated with this report" });
+
+    const fileRecord = await UserUpload.findByPk(report.upload_id);
+    if (!fileRecord || fileRecord.is_deleted)
+      return res.status(404).json({ message: "File not found" });
+
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${fileRecord.file_name.replace(/\.[^/.]+$/, "")}.zip"`
+    );
+
+    res.send(fileRecord.file_data);
+
+    await createHistory(
+      report.user_id,
+      report.report_id,
+      `Downloaded file: ${fileRecord.file_name}`
+    );
+  } catch (err) {
+    next(err);
+  }
+};
+
+/* ------------------------ تنزيل PDF ------------------------ */
+export const downloadReportPDF = async (req, res, next) => {
+  try {
+    const { report_id } = req.params;
+    const report = await UserReport.findByPk(report_id);
+    if (!report || report.is_deleted)
+      return res.status(404).json({ message: "PDF not found" });
+
+    const filePath = report.pdf_path;
+    if (!fs.existsSync(filePath))
+      return res.status(404).json({ message: "PDF not found on server" });
+
+    res.download(filePath);
+  } catch (err) {
+    next(err);
+  }
+};
+
+/* ------------------------ عرض جميع التقارير ------------------------ */
 export const getUserReports = async (req, res, next) => {
   try {
-    const userId = req.user.user_id;
+    const userId = req.user.id;
     const reports = await UserReport.findAll({
       where: { user_id: userId, is_deleted: false },
       order: [["created_at", "DESC"]],
@@ -154,7 +199,7 @@ export const getUserReports = async (req, res, next) => {
   }
 };
 
-// --- Get Report by ID ---
+/* ------------------------ عرض تقرير محدد ------------------------ */
 export const getReportById = async (req, res, next) => {
   try {
     const { report_id } = req.params;
@@ -171,11 +216,11 @@ export const getReportById = async (req, res, next) => {
   }
 };
 
-// --- Update Report ---
+/* ------------------------ تحديث التقرير ------------------------ */
 export const updateUserReport = async (req, res, next) => {
   try {
     const { report_id } = req.params;
-    const { report_title, report_prompt, pdf_path } = req.body;
+    const { report_title, report_prompt } = req.body;
 
     const report = await UserReport.findByPk(report_id);
     if (!report || report.is_deleted)
@@ -183,10 +228,9 @@ export const updateUserReport = async (req, res, next) => {
 
     if (report_title) report.report_title = report_title;
     if (report_prompt) report.report_prompt = report_prompt;
-    if (pdf_path) report.pdf_path = pdf_path;
 
     await report.save();
-    await createHistory(report.user_id, report.report_id, "Updated report");
+    await createHistory(report.user_id, report.report_id, `Updated report`);
 
     res.json({ success: true, message: "Report updated successfully", report });
   } catch (err) {
@@ -194,7 +238,7 @@ export const updateUserReport = async (req, res, next) => {
   }
 };
 
-// --- Delete Report (Logical) ---
+/* ------------------------ حذف التقرير ------------------------ */
 export const deleteUserReport = async (req, res, next) => {
   try {
     const { report_id } = req.params;
@@ -205,60 +249,10 @@ export const deleteUserReport = async (req, res, next) => {
     report.is_deleted = true;
     report.deleted_at = new Date();
     await report.save();
-    await createHistory(report.user_id, report.report_id, "Deleted report");
+    await createHistory(report.user_id, report.report_id, `Deleted report`);
 
     res.json({ success: true, message: "Report deleted successfully" });
   } catch (err) {
-    next(err);
-  }
-};
-
-// --- Download Original Uploaded File ---
-export const downloadReportFile = async (req, res, next) => {
-  try {
-    const { upload_id } = req.params;
-    const fileRecord = await UserUpload.findByPk(upload_id);
-    if (!fileRecord || fileRecord.is_deleted)
-      return res.status(404).json({ message: "File not found" });
-
-    const filePath = fileRecord.file_path;
-    if (!fs.existsSync(filePath))
-      return res.status(404).json({ message: "File not found on server" });
-
-    res.download(filePath);
-  } catch (err) {
-    next(err);
-  }
-};
-
-// download PDF
-export const downloadReportPDF = async (req, res, next) => {
-  try {
-    const { report_id } = req.params;
-    const userId = req.user.user_id;
-
-    const report = await UserReport.findByPk(report_id);
-    if (!report || report.is_deleted)
-      return res.status(404).json({ message: "PDF not found" });
-
-    const filePath = report.pdf_path;
-    if (!fs.existsSync(filePath))
-      return res.status(404).json({ message: "PDF not found on server" });
-
-    // ✅ اقرأ محتوى الملف
-    const fileBuffer = fs.readFileSync(filePath);
-
-    // ✅ خزنه داخل قاعدة البيانات (نفس فكرة upload)
-    report.pdf_data = fileBuffer;
-    await report.save();
-
-    // ✅ سجل العملية في الهيستري
-    await createHistory(userId, report_id, "Downloaded report PDF");
-
-    // ✅ أرسل الملف للمستخدم
-    res.download(filePath);
-  } catch (err) {
-    console.error("❌ Download PDF error:", err);
     next(err);
   }
 };

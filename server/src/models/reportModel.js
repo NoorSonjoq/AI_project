@@ -1,6 +1,8 @@
+// export default UserReport;
 import { DataTypes } from "sequelize";
 import sequelize from "../config/db.js";
 import User from "./userModel.js";
+import UserUpload from "./uploadModel.js"; // استدعاء نموذج UserUpload
 
 const UserReport = sequelize.define(
   "UserReport",
@@ -34,6 +36,15 @@ const UserReport = sequelize.define(
       allowNull: false,
       defaultValue: "",
     },
+    upload_id: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
+      references: {
+        model: UserUpload,
+        key: "upload_id",
+      },
+      onDelete: "SET NULL",
+    },
     is_deleted: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
@@ -52,7 +63,12 @@ const UserReport = sequelize.define(
   }
 );
 
+// العلاقات
 User.hasMany(UserReport, { foreignKey: "user_id" });
 UserReport.belongsTo(User, { foreignKey: "user_id" });
 
-export default UserReport;
+// ربط التقرير بالملف المضغوط
+UserUpload.hasMany(UserReport, { foreignKey: "upload_id" });
+UserReport.belongsTo(UserUpload, { foreignKey: "upload_id" });
+
+export default UserReport;
