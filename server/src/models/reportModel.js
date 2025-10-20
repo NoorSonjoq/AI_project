@@ -51,3 +51,5 @@ const UserReport = sequelize.define(
     updatedAt: "updated_at",
   }
 );
+
+export default UserReport;
