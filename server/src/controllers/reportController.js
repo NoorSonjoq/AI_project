@@ -91,7 +91,7 @@ const generateAIReport = async (prompt, dataPreview) => {
 // --- Generate Report ---
 export const generateReport = async (req, res, next) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.user_id;
     const file = req.file;
     if (!file)
       return res
@@ -143,7 +143,7 @@ export const generateReport = async (req, res, next) => {
 // --- Get All Reports ---
 export const getUserReports = async (req, res, next) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.user_id;
     const reports = await UserReport.findAll({
       where: { user_id: userId, is_deleted: false },
       order: [["created_at", "DESC"]],
@@ -235,7 +235,7 @@ export const downloadReportFile = async (req, res, next) => {
 export const downloadReportPDF = async (req, res, next) => {
   try {
     const { report_id } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.user_id;
 
     const report = await UserReport.findByPk(report_id);
     if (!report || report.is_deleted)
