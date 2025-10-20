@@ -231,10 +231,12 @@ export const downloadReportFile = async (req, res, next) => {
   }
 };
 
-// --- Download PDF ---
+// download PDF
 export const downloadReportPDF = async (req, res, next) => {
   try {
     const { report_id } = req.params;
+    const userId = req.user.id;
+
     const report = await UserReport.findByPk(report_id);
     if (!report || report.is_deleted)
       return res.status(404).json({ message: "PDF not found" });
@@ -243,8 +245,20 @@ export const downloadReportPDF = async (req, res, next) => {
     if (!fs.existsSync(filePath))
       return res.status(404).json({ message: "PDF not found on server" });
 
+    // ✅ اقرأ محتوى الملف
+    const fileBuffer = fs.readFileSync(filePath);
+
+    // ✅ خزنه داخل قاعدة البيانات (نفس فكرة upload)
+    report.pdf_data = fileBuffer;
+    await report.save();
+
+    // ✅ سجل العملية في الهيستري
+    await createHistory(userId, report_id, "Downloaded report PDF");
+
+    // ✅ أرسل الملف للمستخدم
     res.download(filePath);
   } catch (err) {
+    console.error("❌ Download PDF error:", err);
     next(err);
   }
 };
