@@ -101,34 +101,49 @@ export const generateReport = async (req, res, next) => {
     let { prompt } = req.body;
     prompt = prompt?.trim() || DEFAULT_PROMPT;
 
+    // 1️⃣ مسار الملف المرفوع
     const filePath = path.join("uploads", file.filename);
+
+    // 2️⃣ قراءة البيانات من CSV أو XLSX
     const parsedData = await parseFile(filePath);
 
+    // 3️⃣ توليد ملخص AI
     const aiSummary = await generateAIReport(prompt, parsedData);
     const finalData = [...parsedData, { AI_Summary: aiSummary }];
 
+
+    // 4️⃣ إعداد معلومات التقرير
     const reportTitle = "AI Generated Report";
     const reportDescription = `Report based on prompt: ${prompt}`;
     const pdfFileName = generateUniqueFileName("report.pdf");
 
-    // Folder for reports
+        // Folder for reports
+    
+    // 5️⃣ إنشاء مجلد للتقارير إذا لم يكن موجود
     const reportsDir = path.join("uploads", "reports");
-    if (!fs.existsSync(reportsDir))
-      fs.mkdirSync(reportsDir, { recursive: true });
+    if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });
 
     const pdfFilePath = path.join(reportsDir, pdfFileName);
 
+    // 6️⃣ إنشاء PDF
     await createPDF(finalData, reportTitle, reportDescription, pdfFilePath);
 
+    // 7️⃣ قراءة محتوى PDF كـ buffer
+    const pdfBuffer = fs.readFileSync(pdfFilePath);
+
+    // 8️⃣ حفظ التقرير في قاعدة البيانات
     const report = await UserReport.create({
       user_id: userId,
       report_title: reportTitle,
       report_prompt: reportDescription,
-      pdf_path: pdfFilePath,
+      pdf_path: pdfFilePath,  // للاستخدام في التحميل من السيرفر
+      pdf_data: pdfBuffer,    // يخزن المحتوى داخل قاعدة البيانات
     });
 
+    // 9️⃣ تسجيل التاريخ
     await createHistory(userId, report.report_id, "Created new report");
 
+    //  🔟 إرسال الرد
     res.json({
       success: true,
       message: "Report generated successfully",
@@ -139,7 +154,6 @@ export const generateReport = async (req, res, next) => {
     next(err);
   }
 };
-
 // --- Get All Reports ---
 export const getUserReports = async (req, res, next) => {
   try {
@@ -239,6 +253,17 @@ export const downloadReportPDF = async (req, res, next) => {
     if (!report || report.is_deleted)
       return res.status(404).json({ message: "PDF not found" });
 
+    if (report.pdf_data) {
+      // التحميل مباشرة من قاعدة البيانات
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="report_${report_id}.pdf"`
+      );
+      return res.send(report.pdf_data);
+    }
+
+    // fallback: لو الملف موجود على السيرفر
     const filePath = report.pdf_path;
     if (!fs.existsSync(filePath))
       return res.status(404).json({ message: "PDF not found on server" });
@@ -248,3 +273,4 @@ export const downloadReportPDF = async (req, res, next) => {
     next(err);
   }
 };
+

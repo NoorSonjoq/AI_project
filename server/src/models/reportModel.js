@@ -1,7 +1,3 @@
-import { DataTypes } from "sequelize";
-import sequelize from "../config/db.js";
-import User from "./userModel.js";
-
 const UserReport = sequelize.define(
   "UserReport",
   {
@@ -34,6 +30,10 @@ const UserReport = sequelize.define(
       allowNull: false,
       defaultValue: "",
     },
+    pdf_data: {                 // 🟢 ضيفتي العمود هنا داخل object التعريف
+      type: DataTypes.BLOB("long"),
+      allowNull: true,
+    },
     is_deleted: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
@@ -51,8 +51,3 @@ const UserReport = sequelize.define(
     updatedAt: "updated_at",
   }
 );
-
-User.hasMany(UserReport, { foreignKey: "user_id" });
-UserReport.belongsTo(User, { foreignKey: "user_id" });
-
-export default UserReport;
