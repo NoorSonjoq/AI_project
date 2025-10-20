@@ -206,7 +206,6 @@
 import React, { useState } from "react";
 import axios from "axios";
 import "bootstrap/dist/css/bootstrap.min.css";
-import "./home.css";
 import { API_URL } from "../../config";
 
 export default function Home() {
@@ -214,31 +213,31 @@ export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const [uploadedReports, setUploadedReports] = useState([]);
+  const [result, setResult] = useState("");
+  const [uploadedFiles, setUploadedFiles] = useState([]);
 
-  // ======== Handlers ========
+  const token = localStorage.getItem("token"); // تأكدي أن التوكن موجود
+
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
-    if (!selectedFile) return;
     setFile(selectedFile);
-    setErrorMsg("");
   };
 
   const handleUpload = async (e) => {
     e.preventDefault();
+
     if (!file) {
-      setErrorMsg("Please choose a file to upload");
+      setErrorMsg("Please choose a file");
       return;
     }
 
     setLoading(true);
+    setErrorMsg("");
 
     try {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("prompt", prompt);
-
-      const token = localStorage.getItem("token");
 
       const res = await axios.post(`${API_URL}/api/reports`, formData, {
         headers: {
@@ -248,28 +247,32 @@ export default function Home() {
       });
 
       if (res.data.success) {
-        alert("Report generated successfully!");
-        setUploadedReports((prev) => [...prev, res.data.report]);
+        setResult(res.data.preview?.slice(-1)[0]?.AI_Summary || "No summary");
+        setUploadedFiles((prev) => [
+          ...prev,
+          { name: file.name, url: URL.createObjectURL(file) },
+        ]);
         setFile(null);
         setPrompt("");
       } else {
-        setErrorMsg("Failed to generate report");
+        setErrorMsg(res.data.message || "Error uploading file");
       }
     } catch (err) {
-      console.error(err);
-      setErrorMsg("Error uploading file or generating report");
+      console.error("Upload error:", err);
+      setErrorMsg("Failed to upload file");
     } finally {
       setLoading(false);
     }
   };
 
-  // ======== UI ========
   return (
     <div className="container mt-4">
       <h2 className="text-center text-primary mb-4">AI Report Generator</h2>
       <form onSubmit={handleUpload}>
         <div className="mb-3">
-          <label htmlFor="file" className="form-label">Choose Excel or CSV file</label>
+          <label htmlFor="file" className="form-label">
+            Choose Excel or CSV file
+          </label>
           <input
             type="file"
             accept=".csv,.xls,.xlsx"
@@ -280,7 +283,7 @@ export default function Home() {
 
         <div className="mb-3">
           <textarea
-            placeholder="Enter your prompt here..."
+            placeholder="Enter your prompt..."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             rows={3}
@@ -288,33 +291,33 @@ export default function Home() {
           />
         </div>
 
-        {errorMsg && <div className="alert alert-danger">{errorMsg}</div>}
-
         <button type="submit" className="btn btn-primary w-100" disabled={loading}>
-          {loading ? "⏳ Generating..." : "Generate Report"}
+          {loading ? "Uploading..." : "Upload & Generate Report"}
         </button>
       </form>
 
-      <hr />
+      {errorMsg && <div className="alert alert-danger mt-3">{errorMsg}</div>}
 
-      <h4 className="text-center text-success">Uploaded / Generated Reports</h4>
-      {uploadedReports.length === 0 ? (
-        <p className="text-muted text-center">No reports yet</p>
-      ) : (
-        <ul className="list-group">
-          {uploadedReports.map((report) => (
-            <li key={report.report_id} className="list-group-item d-flex justify-content-between align-items-center">
-              <span>{report.report_title}</span>
-              <a
-                href={report.pdf_path}
-                download
-                className="btn btn-sm btn-outline-success"
-              >
-                Download PDF
-              </a>
-            </li>
-          ))}
-        </ul>
+      {result && (
+        <div className="alert alert-success mt-3">
+          <strong>AI Summary:</strong> {result}
+        </div>
+      )}
+
+      {uploadedFiles.length > 0 && (
+        <div className="mt-4">
+          <h5>Uploaded Files:</h5>
+          <ul className="list-group">
+            {uploadedFiles.map((f, i) => (
+              <li key={i} className="list-group-item d-flex justify-content-between align-items-center">
+                {f.name}
+                <a href={f.url} download={f.name} className="btn btn-sm btn-outline-primary">
+                  Download
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );
