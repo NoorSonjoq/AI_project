@@ -86,29 +86,6 @@ const cleanupExpiredTokens = async () => {
 cleanupExpiredTokens();
 setInterval(cleanupExpiredTokens, 60 * 60 * 1000);
 
-const pdfBuffer = Buffer.from(file.buffer); // تحويل Blob إلى Buffer
-
-// حفظ في UserUpload
-const uploaded = await UserUpload.create({
-  user_id: userId,
-  file_name: file.originalname,
-  file_type: "application/pdf",
-  file_data: pdfBuffer,
-});
-
-// ربط التقرير
-const report = await UserReport.create({
-  user_id: userId,
-  report_title: "AI Generated PDF",
-  report_prompt: "Generated from frontend",
-  pdf_path: filePath,
-  upload_id: uploaded.upload_id,
-});
-
-// حفظ التاريخ
-await createHistory(userId, report.report_id, "Saved PDF from frontend");
-
-
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🌍 Server running on port ${PORT}`));
