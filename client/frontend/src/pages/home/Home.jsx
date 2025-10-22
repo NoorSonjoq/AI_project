@@ -130,43 +130,42 @@ export default function Home() {
   };
 
   // ==================== تعديل handleDownloadPDF لتصبح async ====================
- const handleDownloadPDF = async () => {
-  if (!result) return;
+  const handleDownloadPDF = async () => {
+    if (!result) return;
 
-  const doc = new jsPDF();
-  doc.text("AI Generated Report", 10, 10);
-  doc.text(result, 10, 20);
+    const doc = new jsPDF();
+    doc.text("AI Generated Report", 10, 10);
+    doc.text(result, 10, 20);
 
-  // 🟢 الخطوة المهمة: إنشاء Blob من ArrayBuffer مع تحديد الـ type
-  const pdfBlob = new Blob([doc.output("arraybuffer")], { type: "application/pdf" });
-  const pdfUrl = URL.createObjectURL(pdfBlob);
-  const pdfName = "AI_Report.pdf";
+    const pdfBlob = doc.output("blob");
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    const pdfName = "AI_Report.pdf";
 
-  // حفظه مؤقتًا في الواجهة
-  setGeneratedReportFiles((prev) => [...prev, { name: pdfName, url: pdfUrl }]);
+    setGeneratedReportFiles((prev) => [
+      ...prev,
+      { name: pdfName, url: pdfUrl },
+    ]);
 
-  // 🟢 إرسال PDF للسيرفر
-  try {
-    const formData = new FormData();
-    formData.append("pdf", pdfBlob, pdfName);
+    // إرسال الـ PDF للباك لحفظه
+    try {
+      const formData = new FormData();
+      formData.append("pdf", pdfBlob, pdfName);
 
-    const res = await axios.post(
-      "http://localhost:5000/api/files/save-pdf",
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    console.log("PDF saved successfully:", res.data);
-  } catch (err) {
-    console.error("Error saving PDF to backend:", err);
-    setErrorMsg("Error saving PDF to server");
-  }
-};
+      await axios.post(
+        "http://localhost:5000/api/files/save-pdf",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );zzzz
+    } catch (err) {
+      console.error("Error saving PDF to backend:", err);
+      setErrorMsg("Error saving PDF to server");
+    }
+  };
 
   return (
     <div className="wrapper d-flex">
