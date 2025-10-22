@@ -70,18 +70,20 @@ const createPDF = (data, title, description, outputFilePath) =>
 /* ------------------------ توليد التقرير ------------------------ */
 export const generateReport = async (req, res, next) => {
   try {
-    const userId = req.user?.id || null; // ✅ دعم في حال token مش واصل
+    const userId = req.user.id;
     const file = req.file;
     if (!file)
-      return res.status(400).json({ success: false, message: "File is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "File is required" });
 
     let { prompt } = req.body;
     prompt = prompt?.trim() || DEFAULT_PROMPT;
 
-    // قراءة المعاينة
+    // قراءة المعاينة من الملف المرفوع
     const previewData = await readFilePreview(file.buffer, file.mimetype);
 
-    // إرسالها إلى AI
+    // إرسال المعاينة للـ AI
     const aiSummary = await generateAIReport(prompt, previewData);
     const finalData = [...previewData, { AI_Summary: aiSummary }];
 
@@ -90,7 +92,8 @@ export const generateReport = async (req, res, next) => {
     const reportDescription = `Report based on prompt: ${prompt}`;
     const pdfFileName = generateUniqueFileName("report.pdf");
     const reportsDir = "uploads/reports";
-    if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });
+    if (!fs.existsSync(reportsDir))
+      fs.mkdirSync(reportsDir, { recursive: true });
     const pdfFilePath = path.join(reportsDir, pdfFileName);
     await createPDF(finalData, reportTitle, reportDescription, pdfFilePath);
 
@@ -99,7 +102,7 @@ export const generateReport = async (req, res, next) => {
     zip.file(file.originalname, file.buffer);
     const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
 
-    // حفظ الملف المضغوط
+    // حفظ الملف المضغوط في قاعدة البيانات
     const uploaded = await UserUpload.create({
       user_id: userId,
       file_name: file.originalname,
@@ -107,7 +110,7 @@ export const generateReport = async (req, res, next) => {
       file_data: zipBuffer,
     });
 
-    // حفظ التقرير
+    // حفظ التقرير وربطه بالملف المضغوط
     const report = await UserReport.create({
       user_id: userId,
       report_title: reportTitle,
@@ -116,16 +119,11 @@ export const generateReport = async (req, res, next) => {
       upload_id: uploaded.upload_id,
     });
 
-    // حفظ الـ history (بدون ما يوقف النظام لو userId ناقص)
-    try {
-      await createHistory(userId || 0, report.report_id, "Created new report");
-    } catch (historyErr) {
-      console.warn("⚠️ History not saved:", historyErr.message);
-    }
+    await createHistory(userId, report.report_id, `Created new report`);
 
     res.json({
       success: true,
-      message: "Report generated successfully",
+      message: "Report generated successfully with compressed file",
       report,
       preview: finalData,
     });
@@ -134,13 +132,18 @@ export const generateReport = async (req, res, next) => {
   }
 };
 
-/* ------------------------ تنزيل الملف المضغوط ------------------------ */
+/* ------------------------ تنزيل الملف المضغوط للتقرير ------------------------ */
 export const downloadReportFile = async (req, res, next) => {
   try {
     const { report_id } = req.params;
     const report = await UserReport.findByPk(report_id);
     if (!report || report.is_deleted)
       return res.status(404).json({ message: "Report not found" });
+
+    if (!report.upload_id)
+      return res
+        .status(404)
+        .json({ message: "No file associated with this report" });
 
     const fileRecord = await UserUpload.findByPk(report.upload_id);
     if (!fileRecord || fileRecord.is_deleted)
@@ -151,14 +154,14 @@ export const downloadReportFile = async (req, res, next) => {
       "Content-Disposition",
       `attachment; filename="${fileRecord.file_name.replace(/\.[^/.]+$/, "")}.zip"`
     );
+
     res.send(fileRecord.file_data);
 
-    // تسجيل الحدث في history
-    try {
-      await createHistory(report.user_id || 0, report.report_id, `Downloaded file: ${fileRecord.file_name}`);
-    } catch (err) {
-      console.warn("⚠️ History not saved:", err.message);
-    }
+    await createHistory(
+      report.user_id,
+      report.report_id,
+      `Downloaded file: ${fileRecord.file_name}`
+    );
   } catch (err) {
     next(err);
   }
@@ -177,21 +180,15 @@ export const downloadReportPDF = async (req, res, next) => {
       return res.status(404).json({ message: "PDF not found on server" });
 
     res.download(filePath);
-
-    try {
-      await createHistory(report.user_id || 0, report.report_id, "Downloaded report PDF");
-    } catch (err) {
-      console.warn("⚠️ History not saved:", err.message);
-    }
   } catch (err) {
     next(err);
   }
 };
 
-/* ------------------------ عرض التقارير ------------------------ */
+/* ------------------------ عرض جميع التقارير ------------------------ */
 export const getUserReports = async (req, res, next) => {
   try {
-    const userId = req.user?.id || null;
+    const userId = req.user.id;
     const reports = await UserReport.findAll({
       where: { user_id: userId, is_deleted: false },
       order: [["created_at", "DESC"]],
@@ -210,7 +207,9 @@ export const getReportById = async (req, res, next) => {
       where: { report_id, is_deleted: false },
     });
     if (!report)
-      return res.status(404).json({ success: false, message: "Report not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Report not found" });
     res.json({ success: true, report });
   } catch (err) {
     next(err);
@@ -231,12 +230,7 @@ export const updateUserReport = async (req, res, next) => {
     if (report_prompt) report.report_prompt = report_prompt;
 
     await report.save();
-
-    try {
-      await createHistory(report.user_id || 0, report.report_id, "Updated report");
-    } catch (err) {
-      console.warn("⚠️ History not saved:", err.message);
-    }
+    await createHistory(report.user_id, report.report_id, `Updated report`);
 
     res.json({ success: true, message: "Report updated successfully", report });
   } catch (err) {
@@ -255,12 +249,7 @@ export const deleteUserReport = async (req, res, next) => {
     report.is_deleted = true;
     report.deleted_at = new Date();
     await report.save();
-
-    try {
-      await createHistory(report.user_id || 0, report.report_id, "Deleted report");
-    } catch (err) {
-      console.warn("⚠️ History not saved:", err.message);
-    }
+    await createHistory(report.user_id, report.report_id, `Deleted report`);
 
     res.json({ success: true, message: "Report deleted successfully" });
   } catch (err) {
