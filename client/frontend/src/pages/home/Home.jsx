@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "bootstrap/dist/css/bootstrap.min.css";
-import jsPDF from "jspdf";
 import "./home.css";
 import { API_URL } from "../../config";
 
@@ -10,199 +9,135 @@ export default function Home() {
 
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [prompt, setPrompt] = useState("");
-  const [result, setResult] = useState("");
-
   const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [generatedReports, setGeneratedReports] = useState([]);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  useEffect(() => {
-    fetchUploadedFiles();
-    fetchGeneratedReports();
-  }, []);
-
-  const fetchUploadedFiles = async () => {
+  // 🟢 جلب الملفات مع التاريخ
+  const fetchFiles = async () => {
     try {
       const res = await axios.get(`${API_URL}/files`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setUploadedFiles(
-        res.data.files.map((f) => ({
-          id: f.upload_id,
-          name: f.file_name,
-          description: f.description_upload_file || "",
-        }))
-      );
+      setUploadedFiles(res.data.files || []);
     } catch (err) {
-      console.error(err);
-      setErrorMsg("Error fetching uploaded files");
+      console.error("Error fetching files:", err);
+      setErrorMsg("❌ فشل جلب الملفات");
     }
   };
 
-  const fetchGeneratedReports = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/reports`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setGeneratedReports(res.data.reports);
-    } catch (err) {
-      console.error(err);
-      setErrorMsg("Error fetching generated reports");
-    }
-  };
+  useEffect(() => {
+    fetchFiles();
+  }, []);
 
   const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    if (!selectedFile) return;
-    setFile(selectedFile);
+    setFile(e.target.files[0]);
     setErrorMsg("");
   };
 
   const handleUpload = async (e) => {
     e.preventDefault();
-    if (!file && !prompt) {
-      setErrorMsg("Please choose a file or enter a prompt");
+    if (!file) {
+      setErrorMsg("⚠️ اختر ملف أولاً");
       return;
     }
 
     const formData = new FormData();
-    if (file) formData.append("file", file);
-    formData.append("prompt", prompt);
+    formData.append("file", file);
 
     setLoading(true);
-    setErrorMsg("");
-
     try {
-      const res = await axios.post(`${API_URL}/files/upload`, formData, {
+      await axios.post(`${API_URL}/files/upload`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${token}`,
         },
       });
-      await fetchUploadedFiles();
-      setResult(res.data.aiResponse || "");
       setFile(null);
-      setPrompt("");
+      fetchFiles(); // تحديث الملفات بعد الرفع
     } catch (err) {
-      console.error(err);
-      setErrorMsg("Error uploading file");
+      console.error("Upload error:", err);
+      setErrorMsg("❌ فشل رفع الملف");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDownloadFile = async (fileObj) => {
-    if (!fileObj.id) return;
-
+  const handleDownload = async (id, name) => {
     try {
-      const res = await axios.get(`${API_URL}/files/download/${fileObj.id}`, {
+      const res = await axios.get(`${API_URL}/files/download/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: "blob",
       });
       const url = window.URL.createObjectURL(res.data);
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", fileObj.name);
+      link.setAttribute("download", name);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+
+      // تحديث التاريخ بعد التنزيل
+      await fetchFiles();
     } catch (err) {
-      console.error(err);
-      setErrorMsg("Error downloading file");
+      console.error("Download error:", err);
+      setErrorMsg("❌ فشل تنزيل الملف");
     }
   };
 
-  const handleGeneratePDF = async () => {
-    if (!result) return;
-
-    setLoading(true);
-    const doc = new jsPDF();
-    doc.text("AI Generated Report", 10, 10);
-    doc.text(result, 10, 20);
-
-    const pdfBlob = new Blob([doc.output("arraybuffer")], { type: "application/pdf" });
-    const pdfName = `AI_Report_${Date.now()}.pdf`;
-
-    const formData = new FormData();
-    formData.append("pdf", pdfBlob, pdfName);
-
+  const handleDelete = async (id) => {
     try {
-      const res = await axios.post(`${API_URL}/files/save-pdf`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Authorization: `Bearer ${token}`,
-        },
+      await axios.patch(`${API_URL}/files/upload/${id}/delete`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.data.success) {
-        fetchGeneratedReports();
-        setResult("");
-        setErrorMsg("");
-      } else {
-        setErrorMsg("Error saving PDF to server");
-      }
+      fetchFiles(); // تحديث الملفات بعد الحذف
     } catch (err) {
-      console.error(err);
-      setErrorMsg("Error saving PDF to server");
-    } finally {
-      setLoading(false);
+      console.error("Delete error:", err);
+      setErrorMsg("❌ فشل حذف الملف");
     }
   };
 
   return (
-    <div className="wrapper d-flex">
-      {/* Upload Section */}
-      <div className="left-sidebar shadow p-3">
-        <h3 className="text-primary text-center">Uploaded Files</h3>
-        <form onSubmit={handleUpload}>
-          <input type="file" accept=".csv,.xls,.xlsx" onChange={handleFileChange} />
-          <textarea
-            placeholder="Enter prompt"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-          />
-          <button type="submit" disabled={loading}>
-            {loading ? "Uploading..." : "Upload"}
-          </button>
-        </form>
+    <div className="container mt-5">
+      <h3 className="text-center">إدارة الملفات والتاريخ</h3>
 
-        <ul>
-          {uploadedFiles.map((file, i) => (
-            <li key={i}>
-              {file.name}
-              <button onClick={() => handleDownloadFile(file)}>Download</button>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* PDF Section */}
-      <div className="middle-container flex-grow-1 p-4">
-        <h3>AI Report Generator</h3>
-        <button onClick={handleGeneratePDF} disabled={loading || !result}>
-          {loading ? "Processing..." : "Generate PDF & Save"}
+      <form onSubmit={handleUpload} className="mb-4">
+        <input type="file" onChange={handleFileChange} />
+        <button type="submit" className="btn btn-primary ms-2" disabled={loading}>
+          {loading ? "⏳ جاري رفع الملف..." : "رفع الملف"}
         </button>
-        {errorMsg && <p>{errorMsg}</p>}
-      </div>
+      </form>
 
-      {/* Generated Reports Section */}
-      <div className="right-sidebar shadow p-3">
-        <h3>Generated Reports</h3>
-        <ul>
-          {generatedReports.map((report, i) => (
-            <li key={i}>
-              {report.report_title}
-              <button onClick={() => handleDownloadFile({ id: report.upload_id, name: `${report.report_title}.zip` })}>
-                Download ZIP
-              </button>
-              <button onClick={() => handleDownloadFile({ id: report.report_id, name: `${report.report_title}.pdf` })}>
-                Download PDF
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {errorMsg && <p className="text-danger">{errorMsg}</p>}
+
+      <h5>الملفات المرفوعة:</h5>
+      <ul className="list-group">
+        {uploadedFiles.map((f) => (
+          <li key={f.upload_id} className="list-group-item">
+            <div className="d-flex justify-content-between align-items-center">
+              <div>
+                <strong>{f.file_name}</strong>
+                {f.description_upload_file && <p>{f.description_upload_file}</p>}
+              </div>
+              <div>
+                <button className="btn btn-sm btn-success me-2" onClick={() => handleDownload(f.upload_id, f.file_name)}>تنزيل</button>
+                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(f.upload_id)}>حذف</button>
+              </div>
+            </div>
+
+            {/* 🟢 عرض التاريخ */}
+            {f.history && f.history.length > 0 && (
+              <ul className="mt-2 list-group list-group-flush">
+                {f.history.map((h, i) => (
+                  <li key={i} className="list-group-item small text-muted">
+                    {h.action} — {new Date(h.created_at).toLocaleString()}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
