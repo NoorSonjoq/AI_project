@@ -4,19 +4,22 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import jsPDF from "jspdf";
 import "./home.css";
 
+
 export default function Home() {
   const token = localStorage.getItem("token");
 
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [fileUploaded, setFileUploaded] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [result, setResult] = useState("");
 
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [generatedReportFiles, setGeneratedReportFiles] = useState([]);
 
-  useEffect(() => {
+
+useEffect(() => {
     fetchFiles();
   }, []);
 
@@ -39,6 +42,7 @@ export default function Home() {
     }
   };
 
+  // ====================  
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
@@ -46,6 +50,7 @@ export default function Home() {
     setErrorMsg("");
   };
 
+  // ====================  
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!file && !prompt) {
@@ -72,10 +77,11 @@ export default function Home() {
         }
       );
 
-      await fetchFiles();
+      await fetchFiles(); 
       setResult(res.data.aiResponse);
       setFile(null);
       setPrompt("");
+
     } catch (err) {
       console.error(err);
       setErrorMsg("Error uploading file");
@@ -84,6 +90,7 @@ export default function Home() {
     }
   };
 
+  // ====================
   const handleDownload = async (fileObj) => {
     if (!fileObj.url && !fileObj.id) return;
 
@@ -115,6 +122,7 @@ export default function Home() {
     }
   };
 
+  // ====================
   const handleDelete = async (id) => {
     try {
       await axios.patch(
@@ -129,8 +137,8 @@ export default function Home() {
     }
   };
 
-  // ==================== تعديل handleDownloadPDF لتصبح async ====================
-  const handleDownloadPDF = async () => {
+  // ==================== 
+  const handleDownloadPDF = () => {
     if (!result) return;
 
     const doc = new jsPDF();
@@ -145,30 +153,11 @@ export default function Home() {
       ...prev,
       { name: pdfName, url: pdfUrl },
     ]);
-
-    // إرسال الـ PDF للباك لحفظه
-    try {
-      const formData = new FormData();
-      formData.append("pdf", pdfBlob, pdfName);
-
-      await axios.post(
-        "http://localhost:5000/api/files/save-pdf",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );zzzz
-    } catch (err) {
-      console.error("Error saving PDF to backend:", err);
-      setErrorMsg("Error saving PDF to server");
-    }
   };
 
   return (
     <div className="wrapper d-flex">
+      {/* ================================== LEFT SIDEBAR ==================================*/}
       <div className="left-sidebar shadow p-3">
         <h3 className="text-primary text-center">Uploaded Files</h3>
         {uploadedFiles.length === 0 ? (
@@ -201,6 +190,7 @@ export default function Home() {
         )}
       </div>
 
+      {/* ================================== MIDDLE ==================================*/}
       <div className="middle-container flex-grow-1 p-4">
         <div className="card p-4">
           <h2 className="text-center text-primary mb-3">AI Report Generator</h2>
@@ -251,6 +241,7 @@ export default function Home() {
         </div>
       </div>
 
+      {/* ================================== RIGHT SIDEBAR ================================== */}
       <div className="right-sidebar shadow p-3">
         <h3 className="text-primary text-center">Generated Reports</h3>
         {generatedReportFiles.length === 0 ? (
@@ -277,3 +268,4 @@ export default function Home() {
     </div>
   );
 }
+ 

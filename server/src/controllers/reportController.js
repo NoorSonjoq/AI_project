@@ -51,7 +51,9 @@ const createPDF = (data, title, description, outputFilePath) =>
     doc.fontSize(16).text(title, { align: "center" });
     doc.moveDown();
     doc.fontSize(10).text(description, { align: "center" });
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, { align: "center" });
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, {
+      align: "center",
+    });
     doc.moveDown();
 
     data.forEach((row, index) => {
@@ -119,7 +121,7 @@ export const generateReport = async (req, res, next) => {
       upload_id: uploaded.upload_id,
     });
 
-    await createHistory(userId, report.report_id, `Created new report`);
+    await createHistory(userId, report.report_id, "Created new report");
 
     res.json({
       success: true,
@@ -132,7 +134,7 @@ export const generateReport = async (req, res, next) => {
   }
 };
 
-/* ------------------------ تنزيل الملف المضغوط للتقرير ------------------------ */
+/* ------------------------ تحميل الملف المضغوط للتقرير ------------------------ */
 export const downloadReportFile = async (req, res, next) => {
   try {
     const { report_id } = req.params;
@@ -152,11 +154,13 @@ export const downloadReportFile = async (req, res, next) => {
     res.setHeader("Content-Type", "application/zip");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="${fileRecord.file_name.replace(/\.[^/.]+$/, "")}.zip"`
+      `attachment; filename="${fileRecord.file_name.replace(
+        /\.[^/.]+$/,
+        ""
+      )}.zip"`
     );
 
     res.send(fileRecord.file_data);
-
     await createHistory(
       report.user_id,
       report.report_id,
@@ -167,7 +171,7 @@ export const downloadReportFile = async (req, res, next) => {
   }
 };
 
-/* ------------------------ تنزيل PDF ------------------------ */
+/* ------------------------ تحميل PDF ------------------------ */
 export const downloadReportPDF = async (req, res, next) => {
   try {
     const { report_id } = req.params;
@@ -230,7 +234,7 @@ export const updateUserReport = async (req, res, next) => {
     if (report_prompt) report.report_prompt = report_prompt;
 
     await report.save();
-    await createHistory(report.user_id, report.report_id, `Updated report`);
+    await createHistory(report.user_id, report.report_id, "Updated report");
 
     res.json({ success: true, message: "Report updated successfully", report });
   } catch (err) {
@@ -249,7 +253,7 @@ export const deleteUserReport = async (req, res, next) => {
     report.is_deleted = true;
     report.deleted_at = new Date();
     await report.save();
-    await createHistory(report.user_id, report.report_id, `Deleted report`);
+    await createHistory(report.user_id, report.report_id, "Deleted report");
 
     res.json({ success: true, message: "Report deleted successfully" });
   } catch (err) {
