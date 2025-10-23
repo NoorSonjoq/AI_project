@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
-import { Op } from "sequelize"; // 🟢 ضروري لاستخدام Op.lt
+import { Op } from "sequelize";
 
 import authRoutes from "./src/routes/authRoutes.js";
 import reportRoutes from "./src/routes/reportRoutes.js";
@@ -21,56 +21,52 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const allowedOrigins = [
-  "https://ai-project-3x1h.vercel.app",
-  "https://newre-git-main-noorsonjoq-s-projects.vercel.app",
-];
-
+// ✅ إعداد CORS المضمون والآمن
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) === -1) {
-        const msg = "CORS policy does not allow access from this origin.";
-        return callback(new Error(msg), false);
-      }
-      return callback(null, true);
-    },
+    origin: [
+      "https://ai-project-3x1h.vercel.app", // موقعك على Vercel
+      "https://newre-git-main-noorsonjoq-s-projects.vercel.app", // رابط إضافي إذا استخدمتيه
+      "http://localhost:3000", // للسماح بالتجربة محلياً
+    ],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
 );
 
-// Middleware
+// ✅ Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(logger);
 
-// إنشاء uploads folder إذا غير موجود
+// ✅ إنشاء مجلد للملفات المرفوعة إن لم يكن موجودًا
 const uploadsDir = path.join(__dirname, process.env.UPLOAD_PATH || "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 
-// Static folder للملفات المرفوعة
+// ✅ مجلد ثابت لعرض الملفات
 app.use("/uploads", express.static(uploadsDir));
 
-// Routes
+// ✅ المسارات
 app.use("/api/auth", authRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/files", fileRoutes);
 app.use("/api/history", historyRoutes);
 
-// Error handling
+// ✅ معالج الأخطاء
 app.use(errorHandler);
 
-// Connect DB
+// ✅ الاتصال بقاعدة البيانات
 connectDB()
-  .then(() => console.log("✅ Database ready"))
+  .then(() => console.log("✅ Database connected successfully"))
   .catch((err) => console.error("❌ Database connection failed:", err));
 
-// Test route
-app.get("/", (req, res) => res.send("🚀 API is running successfully..."));
+// ✅ Route تجريبي للتأكد أن السيرفر شغال
+app.get("/", (req, res) => {
+  res.send("🚀 API is running successfully...");
+});
 
-// Token cleanup function
-// ========================
+// ✅ تنظيف التوكنات المنتهية الصلاحية
 const cleanupExpiredTokens = async () => {
   try {
     const deleted = await TokenBlacklist.destroy({
@@ -82,10 +78,9 @@ const cleanupExpiredTokens = async () => {
   }
 };
 
-// نفّذ التنظيف فور بدء السيرفر ثم كل ساعة
 cleanupExpiredTokens();
-setInterval(cleanupExpiredTokens, 60 * 60 * 1000);
+setInterval(cleanupExpiredTokens, 60 * 60 * 1000); // كل ساعة
 
-// Start server
+// ✅ تشغيل السيرفر
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🌍 Server running on port ${PORT}`));
