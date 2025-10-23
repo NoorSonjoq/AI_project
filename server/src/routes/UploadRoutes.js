@@ -21,9 +21,6 @@ router.post("/upload", verifyToken, upload.single("file"), uploadFile);
 // ✅ جلب كل الملفات للمستخدم الحالي
 router.get("/", verifyToken, getFiles);
 
-// ✅ تحميل ملف معين مباشرة من قاعدة البيانات
-router.get("/download/:id", verifyToken, downloadFile);
-
 // get file by id
 router.get("/:id", verifyToken, getFileById);
 

@@ -1,99 +1,129 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "bootstrap/dist/css/bootstrap.min.css";
 import jsPDF from "jspdf";
 import "./home.css";
 import { API_URL } from "../../config";
 
-
 export default function Home() {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [fileUploaded, setFileUploaded] = useState(false);
-   const [prompt, setPrompt] = useState("");
-   const [result, setResult] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [result, setResult] = useState("");
 
-  // now each file = { name, url }
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [generatedReportFiles, setGeneratedReportFiles] = useState([]);
 
-  // ==================
+  const token = localStorage.getItem("token");
+
+  // ================== جلب الملفات المخزنة عند تحميل الصفحة
+  const fetchFiles = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/files`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.data.success) {
+        setUploadedFiles(res.data.files);
+      }
+    } catch (err) {
+      console.error("Error fetching files:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchFiles();
+  }, []);
+
+  // ================== تغيير الملف
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
-
     setFile(selectedFile);
     setFileUploaded(false);
   };
 
-  // ==================
+  // ================== رفع الملف
   const handleUpload = async (e) => {
     e.preventDefault();
-
     if (!file) {
       setErrorMsg("Please choose a file or enter a prompt");
       return;
     }
 
-     const formData = new FormData();
+    const formData = new FormData();
     formData.append("file", file);
     formData.append("prompt", prompt);
-const token = localStorage.getItem('token')
+
     try {
+      setLoading(true);
       const res = await axios.post(`${API_URL}/api/files/upload`, formData, {
-        headers: { 
+        headers: {
           "Content-Type": "multipart/form-data",
-            Authorization: `Bearer ${token}`,
-         },
+          Authorization: `Bearer ${token}`,
+        },
       });
-      console.log('RESPONSE', res.data.aiResponse);
+
+      console.log("RESPONSE", res.data.aiResponse);
       setResult(res.data.aiResponse);
-      
+      setFileUploaded(true);
+      setErrorMsg("");
+
+      fetchFiles(); // تحديث قائمة الملفات بعد الرفع
     } catch (err) {
       console.error(err);
       alert("Error processing the file");
     } finally {
       setLoading(false);
     }
-
-    console.log(formData.get('file'));
-    console.log(formData.get('prompt'));
-    
-    setLoading(true);
-    setErrorMsg("");
-    setFileUploaded(true);
-
-    // Create a Blob URL for the uploaded file
-    const fileUrl = URL.createObjectURL(file);
-
-    setUploadedFiles((prev) => [
-      ...prev,
-      { name: file.name, url: fileUrl },
-    ]);
-
-    setLoading(false);
   };
 
-  // ====================
+  // ================== تحميل ملف
+  const handleDownload = async (id, fileName) => {
+    try {
+      const res = await axios.get(`${API_URL}/api/files/download/${id}`, {
+        responseType: "blob",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error("Download error:", err);
+    }
+  };
+
+  // ================== حذف ملف
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this file?")) return;
+    try {
+      await axios.patch(`${API_URL}/api/files/upload/${id}/delete`, null, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      fetchFiles(); // تحديث القائمة بعد الحذف
+    } catch (err) {
+      console.error("Delete error:", err);
+    }
+  };
+
+  // ================== توليد تقرير PDF
   const handleDownloadPDF = () => {
     const doc = new jsPDF();
     doc.text("AI Generated Report", 10, 10);
-    doc.text("Sample report content goes here...", 10, 20);
-    doc.text(result, 10, 30);
-
-    // Convert to Blob
+    doc.text(result, 10, 20);
     const pdfBlob = doc.output("blob");
     const pdfUrl = URL.createObjectURL(pdfBlob);
-    // const pdfName = "AI_Report_" + new Date().getTime() + ".pdf";
-    const pdfName = "AI_Report_" + ".pdf";
+    const pdfName = "AI_Report.pdf";
 
-    // Save to list (with URL)
     setGeneratedReportFiles((prev) => [
       ...prev,
       { name: pdfName, url: pdfUrl },
     ]);
-
     setFileUploaded(false);
   };
 
@@ -107,16 +137,28 @@ const token = localStorage.getItem('token')
           <p className="text-muted text-center">No files uploaded yet</p>
         ) : (
           <ul className="list-group small">
-            {uploadedFiles.map((file, i) => (
-              <li key={i} className="list-group-item d-flex justify-content-between align-items-center">
-                <span>{file.name}</span>
-                <a
-                  href={file.url}
-                  download={file.name}
-                  className="btn btn-sm btn-outline-primary"
-                >
-                  Download
-                </a>
+            {uploadedFiles.map((file) => (
+              <li
+                key={file.upload_id}
+                className="list-group-item d-flex justify-content-between align-items-center"
+              >
+                <span>{file.file_name}</span>
+                <div>
+                  <button
+                    className="btn btn-sm btn-outline-primary me-2"
+                    onClick={() =>
+                      handleDownload(file.upload_id, file.file_name)
+                    }
+                  >
+                    Download
+                  </button>
+                  <button
+                    className="btn btn-sm btn-outline-danger"
+                    onClick={() => handleDelete(file.upload_id)}
+                  >
+                    Delete
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -141,17 +183,21 @@ const token = localStorage.getItem('token')
               />
             </div>
 
-               <div className="mb-3">
-          <textarea
-            placeholder="Enter your prompt here..."
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            rows={3}
-            className="form-control"
-          />
-        </div>
+            <div className="mb-3">
+              <textarea
+                placeholder="Enter your prompt here..."
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                rows={3}
+                className="form-control"
+              />
+            </div>
 
-            <button type="submit" className="btn btn-primary w-100 mt-3" disabled={loading}>
+            <button
+              type="submit"
+              className="btn btn-primary w-100 mt-3"
+              disabled={loading}
+            >
               {loading ? "⏳ Uploading..." : "Upload"}
             </button>
           </form>
@@ -166,12 +212,7 @@ const token = localStorage.getItem('token')
             Generate Report as PDF
           </button>
 
-
-          {
-            result && <p>
-              {result}
-            </p>
-          }
+          {result && <p className="mt-3">{result}</p>}
         </div>
       </div>
 
@@ -183,7 +224,10 @@ const token = localStorage.getItem('token')
         ) : (
           <ul className="list-group small">
             {generatedReportFiles.map((file, i) => (
-              <li key={i} className="list-group-item d-flex justify-content-between align-items-center">
+              <li
+                key={i}
+                className="list-group-item d-flex justify-content-between align-items-center"
+              >
                 <span>{file.name}</span>
                 <a
                   href={file.url}
@@ -197,6 +241,6 @@ const token = localStorage.getItem('token')
           </ul>
         )}
       </div>
-    </div>
-  );
+    </div>
+  );
 }
